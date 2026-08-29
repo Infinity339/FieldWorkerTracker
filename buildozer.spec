@@ -5,7 +5,7 @@ package.domain = org.fieldworker.tracker
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 1.0.0
-requirements = python3==3.11,kivy==2.2.1,plyer,requests,pyjnius,certifi
+requirements = python3,kivy==2.2.1,plyer,requests,pyjnius,certifi
 orientation = portrait
 fullscreen = 0
 android.presplash_color = #FFFFFF
@@ -16,8 +16,6 @@ android.ndk = 27c
 android.copy_libs = 1
 android.archs = arm64-v8a,armeabi-v7a
 android.enable_androidx = True
-android.skip_update = False
-android.accept_sdk_license = True
 
 [buildozer]
 log_level = 2
