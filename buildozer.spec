@@ -5,7 +5,7 @@ package.domain = org.fieldworker
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 1.0
-requirements = python3==3.11,kivy==2.3.0,plyer,requests,pyjnius,certifi,urllib3,idna,charset-normalizer,chardet
+requirements = python3==3.14.2,kivy==2.3.0,plyer,requests,pyjnius,certifi,urllib3,idna,charset-normalizer,chardet
 orientation = portrait
 fullscreen = 0
 # Background service for continuous location tracking
