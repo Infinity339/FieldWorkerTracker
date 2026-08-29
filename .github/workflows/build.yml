@@ -14,69 +14,76 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config libncurses-dev cmake libffi-dev libssl-dev cython3 ccache ninja-build wget curl
-        python3 -m pip install --upgrade pip
-        pip install cython
-        pip install buildozer
-        pip install kivy==2.2.1
-        pip install plyer requests
+        sudo apt-get install -y \
+          build-essential git zip unzip openjdk-17-jdk \
+          python3-pip autoconf libtool pkg-config \
+          libncurses-dev cmake libffi-dev libssl-dev \
+          cython3 ninja-build
 
-    - name: Display buildozer version
-      run: buildozer --version || echo "buildozer not ready yet"
-
-    - name: Build APK with detailed output
+    - name: Install Python packages
       run: |
-        echo "Starting APK build..."
-        buildozer android debug 2>&1 | tee build.log
-        echo "Build command completed"
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install cython==0.29.35
+        python3 -m pip install buildozer==1.5.0
+        python3 -m pip install kivy==2.2.1
+        python3 -m pip install plyer requests pyjnius certifi
+
+    - name: Verify Python environment
+      run: |
+        echo "=== Python Version ==="
+        python3 --version
+        echo "=== Pip Packages ==="
+        pip list | grep -E "buildozer|kivy|cython"
+        echo "=== Buildozer Info ==="
+        buildozer --version
+        which buildozer
+
+    - name: Verify buildozer.spec
+      run: |
+        echo "=== buildozer.spec content ==="
+        cat buildozer.spec
+        echo "=== main.py first 50 lines ==="
+        head -50 main.py
+
+    - name: Build APK (VERBOSE OUTPUT)
+      run: |
+        echo "Starting buildozer build with verbose output..."
+        buildozer android debug -v 2>&1 | tee build_output.log
+        BUILD_EXIT_CODE=$?
+        echo "Build exit code: $BUILD_EXIT_CODE"
         
-        # Show final status
-        if [ -f bin/fieldworkerlocationtracker-1.0-debug.apk ]; then
-          echo "✅ SUCCESS: APK created!"
-          ls -lh bin/*.apk
-        else
-          echo "⚠️ APK not found at expected location"
-          echo "Searching for any APK files..."
-          find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
-          echo ""
-          echo "=== Last 200 lines of build log ==="
-          tail -200 build.log || echo "No build log"
-        fi
-      continue-on-error: true
-      timeout-minutes: 150
-
-    - name: Check for APK
+    - name: Show build result
+      if: always()
       run: |
-        echo "Checking for generated APK..."
-        ls -la bin/ 2>/dev/null || echo "bin directory not found"
-        find . -maxdepth 3 -name "*.apk" -type f 2>/dev/null || echo "No APK files in project"
+        echo "=== Checking for APK ==="
+        if [ -f "bin/fieldworkerlocationtracker-1.0-debug.apk" ]; then
+          echo "✅ APK FOUND!"
+          ls -lh bin/fieldworkerlocationtracker-1.0-debug.apk
+        else
+          echo "❌ APK NOT FOUND"
+          echo ""
+          echo "=== Last 300 lines of build log ==="
+          tail -300 build_output.log
+          echo ""
+          echo "=== Searching for error messages ==="
+          grep -i "error\|failed\|exception" build_output.log || echo "No explicit errors in log"
+        fi
 
-    - name: Upload APK if found
+    - name: Upload APK or build log
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: fieldworker-tracker-apk
-        path: bin/*.apk
+        name: fieldworker-tracker-build
+        path: |
+          bin/*.apk
+          build_output.log
         if-no-files-found: warn
-        retention-days: 30
-
-    - name: Print build status
-      if: always()
-      run: |
-        echo "=== Workflow Summary ==="
-        if [ -f bin/fieldworkerlocationtracker-1.0-debug.apk ]; then
-          echo "✅ BUILD SUCCESSFUL"
-          ls -lh bin/fieldworkerlocationtracker-1.0-debug.apk
-        else
-          echo "❌ BUILD INCOMPLETE - APK NOT GENERATED"
-          echo "Check the build log above for errors"
-        fi
 
