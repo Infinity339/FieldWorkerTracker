@@ -8,83 +8,75 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python 3.11
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          git \
-          wget \
-          curl \
-          libffi-dev \
-          libssl-dev \
-          python3-dev \
-          python3-pip \
-          autoconf \
-          libtool \
-          pkg-config \
-          libncurses-dev \
-          cmake \
-          openjdk-17-jdk \
-          android-sdk \
-          ant \
-          ccache \
-          ninja-build
+        sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config libncurses-dev cmake libffi-dev libssl-dev cython3 ccache ninja-build wget curl
+        python3 -m pip install --upgrade pip
+        pip install cython
+        pip install buildozer
+        pip install kivy==2.2.1
+        pip install plyer requests
 
-    - name: Install Python dependencies
+    - name: Display buildozer version
+      run: buildozer --version || echo "buildozer not ready yet"
+
+    - name: Build APK with detailed output
       run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install buildozer cython kivy plyer requests
-
-    - name: Setup Android environment
-      run: |
-        echo "ANDROID_SDK_ROOT=/usr/lib/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_NDK=/usr/lib/android-sdk/ndk-bundle" >> $GITHUB_ENV
-
-    - name: Create buildozer cache directory
-      run: mkdir -p ~/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a
-
-    - name: Build APK
-      run: |
-        cd $GITHUB_WORKSPACE
-        buildozer android debug 2>&1 | head -200 || echo "Build command executed"
-        sleep 5
-        if [ -f bin/*.apk ]; then
-          echo "✅ APK built successfully!"
-          ls -lh bin/
+        echo "Starting APK build..."
+        buildozer android debug 2>&1 | tee build.log
+        echo "Build command completed"
+        
+        # Show final status
+        if [ -f bin/fieldworkerlocationtracker-1.0-debug.apk ]; then
+          echo "✅ SUCCESS: APK created!"
+          ls -lh bin/*.apk
         else
-          echo "⚠️ APK build may still be in progress or failed"
-          find . -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+          echo "⚠️ APK not found at expected location"
+          echo "Searching for any APK files..."
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+          echo ""
+          echo "=== Last 200 lines of build log ==="
+          tail -200 build.log || echo "No build log"
         fi
-      timeout-minutes: 100
+      continue-on-error: true
+      timeout-minutes: 150
 
     - name: Check for APK
       run: |
-        if [ -d "bin" ] && [ -n "$(ls -A bin/*.apk 2>/dev/null)" ]; then
-          echo "✅ APK files found:"
-          ls -lh bin/*.apk
-        else
-          echo "⚠️ No APK generated - build may need retrying"
-          echo "Buildozer log:"
-          tail -100 .buildozer/android/platform/build-arm64-v8a_armeabi-v7a/build/libs/main.so || echo "No log found"
-        fi
+        echo "Checking for generated APK..."
+        ls -la bin/ 2>/dev/null || echo "bin directory not found"
+        find . -maxdepth 3 -name "*.apk" -type f 2>/dev/null || echo "No APK files in project"
 
-    - name: Upload APK if exists
+    - name: Upload APK if found
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: fieldworker-tracker-apk
         path: bin/*.apk
+        if-no-files-found: warn
         retention-days: 30
+
+    - name: Print build status
+      if: always()
+      run: |
+        echo "=== Workflow Summary ==="
+        if [ -f bin/fieldworkerlocationtracker-1.0-debug.apk ]; then
+          echo "✅ BUILD SUCCESSFUL"
+          ls -lh bin/fieldworkerlocationtracker-1.0-debug.apk
+        else
+          echo "❌ BUILD INCOMPLETE - APK NOT GENERATED"
+          echo "Check the build log above for errors"
+        fi
 
