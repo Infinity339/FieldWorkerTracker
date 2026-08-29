@@ -20,67 +20,38 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential git zip unzip openjdk-17-jdk \
-          python3-pip autoconf libtool pkg-config \
-          libncurses-dev cmake libffi-dev libssl-dev cython3 ninja-build
+        sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config libncurses-dev cmake libffi-dev libssl-dev cython3 ninja-build
 
     - name: Install Python packages
       run: |
         python3 -m pip install --upgrade pip
         pip install cython==0.29.35 buildozer==1.5.0 kivy==2.2.1 plyer requests pyjnius certifi
 
-    - name: Create Android SDK Licenses Directory
-      run: |
-        mkdir -p ~/.android/
-        echo "### User Preferences for Android SDK Manager
-# Proxy Settings
-proxy.type=http
-proxy.host=
-proxy.port=0
-proxy.user=
-proxy.password=
-
-### Android SDK Manager Settings
-# You must accept the license agreements to use the Android SDK.
-# A list is shown in the Help menu under Third-party Licenses.
-sdk.repo.warn=true
-" > ~/.android/repositories.cfg
-        cat ~/.android/repositories.cfg
-
-    - name: Accept Licenses with sdkmanager
+    - name: Setup Android SDK Licenses
       run: |
         mkdir -p $ANDROID_HOME/licenses
-        # Create license acceptance files
-        echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
-        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license  
-        echo -e "\nd56f5187479451eabf01fb78af6dfcb131b33910" > $ANDROID_HOME/licenses/google-android-sdk-license
-        ls -la $ANDROID_HOME/licenses/ || echo "License files not created"
+        echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license
+        echo "d56f5187479451eabf01fb78af6dfcb131b33910" > $ANDROID_HOME/licenses/google-android-sdk-license
+        echo "Licenses created successfully"
+        ls -la $ANDROID_HOME/licenses/
 
     - name: Build APK
       run: |
         echo "=== Starting Build ==="
-        echo "ANDROID_HOME=$ANDROID_HOME"
         buildozer android debug 2>&1
-        BUILD_RESULT=$?
-        echo "Build exit code: $BUILD_RESULT"
         echo "=== Build Complete ==="
 
     - name: Check APK
       if: always()
       run: |
-        echo "=== APK Status ==="
+        echo "=== Checking for APK ==="
         if [ -f "bin/fieldworkerlocationtracker-1.0-debug.apk" ]; then
-          echo "✅ APK FOUND AND CREATED!"
+          echo "✅ APK CREATED!"
           ls -lh bin/fieldworkerlocationtracker-1.0-debug.apk
-          file bin/fieldworkerlocationtracker-1.0-debug.apk
         else
           echo "❌ APK not found"
-          echo "Searching in bin folder..."
-          ls -la bin/ 2>/dev/null || echo "bin/ does not exist"
-          echo ""
-          echo "Searching entire project..."
-          find . -name "*.apk" -type f 2>/dev/null | head -10 || echo "No APK found"
+          ls -la bin/ 2>/dev/null || echo "bin folder does not exist"
         fi
 
     - name: Upload APK
@@ -88,8 +59,6 @@ sdk.repo.warn=true
       if: always()
       with:
         name: fieldworker-tracker-apk
-        path: |
-          bin/*.apk
-          buildozer.spec
+        path: bin/*.apk
         if-no-files-found: warn
 
