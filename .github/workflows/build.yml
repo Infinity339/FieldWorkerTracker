@@ -17,32 +17,50 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config libncurses-dev cmake libffi-dev libssl-dev cython3 ninja-build
+        sudo apt-get install -y \
+          build-essential git zip unzip openjdk-17-jdk \
+          python3-pip autoconf libtool pkg-config \
+          libncurses-dev cmake libffi-dev libssl-dev cython3 ninja-build
+
+    - name: Install Python packages
+      run: |
         python3 -m pip install --upgrade pip
         pip install cython==0.29.35 buildozer==1.5.0 kivy==2.2.1 plyer requests pyjnius certifi
 
-    - name: Build APK
-      run: buildozer android debug 2>&1
+    - name: Accept Android SDK Licenses
+      run: |
+        mkdir -p ~/.android
+        touch ~/.android/repositories.cfg
+        echo "### User Preferences for Android SDK Manager" > ~/.android/repositories.cfg
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || echo "Licenses accepted or already accepted"
 
-    - name: Show result
+    - name: Build APK
+      run: |
+        echo "=== Starting Build ==="
+        buildozer android debug 2>&1
+        echo "=== Build Complete ==="
+
+    - name: Verify APK
       if: always()
       run: |
+        echo "=== Checking for APK ==="
         if [ -f "bin/fieldworkerlocationtracker-1.0-debug.apk" ]; then
           echo "✅ SUCCESS - APK CREATED!"
-          ls -lh bin/*.apk
+          ls -lh bin/fieldworkerlocationtracker-1.0-debug.apk
+          exit 0
         else
-          echo "❌ APK not found - checking for errors..."
-          find . -name "*.apk" 2>/dev/null || echo "No APK files"
+          echo "❌ APK not found"
+          find bin -name "*.apk" 2>/dev/null || echo "No APK in bin folder"
+          exit 1
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
-      if: always()
+      if: success()
       with:
         name: fieldworker-tracker-apk
-        path: bin/*.apk
-        if-no-files-found: warn
+        path: bin/fieldworkerlocationtracker-1.0-debug.apk
 
