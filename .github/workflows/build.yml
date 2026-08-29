@@ -30,37 +30,66 @@ jobs:
         python3 -m pip install --upgrade pip
         pip install cython==0.29.35 buildozer==1.5.0 kivy==2.2.1 plyer requests pyjnius certifi
 
-    - name: Accept Android SDK Licenses
+    - name: Create Android SDK Licenses Directory
       run: |
-        mkdir -p ~/.android
-        touch ~/.android/repositories.cfg
-        echo "### User Preferences for Android SDK Manager" > ~/.android/repositories.cfg
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || echo "Licenses accepted or already accepted"
+        mkdir -p ~/.android/
+        echo "### User Preferences for Android SDK Manager
+# Proxy Settings
+proxy.type=http
+proxy.host=
+proxy.port=0
+proxy.user=
+proxy.password=
+
+### Android SDK Manager Settings
+# You must accept the license agreements to use the Android SDK.
+# A list is shown in the Help menu under Third-party Licenses.
+sdk.repo.warn=true
+" > ~/.android/repositories.cfg
+        cat ~/.android/repositories.cfg
+
+    - name: Accept Licenses with sdkmanager
+      run: |
+        mkdir -p $ANDROID_HOME/licenses
+        # Create license acceptance files
+        echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
+        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license  
+        echo -e "\nd56f5187479451eabf01fb78af6dfcb131b33910" > $ANDROID_HOME/licenses/google-android-sdk-license
+        ls -la $ANDROID_HOME/licenses/ || echo "License files not created"
 
     - name: Build APK
       run: |
         echo "=== Starting Build ==="
+        echo "ANDROID_HOME=$ANDROID_HOME"
         buildozer android debug 2>&1
+        BUILD_RESULT=$?
+        echo "Build exit code: $BUILD_RESULT"
         echo "=== Build Complete ==="
 
-    - name: Verify APK
+    - name: Check APK
       if: always()
       run: |
-        echo "=== Checking for APK ==="
+        echo "=== APK Status ==="
         if [ -f "bin/fieldworkerlocationtracker-1.0-debug.apk" ]; then
-          echo "✅ SUCCESS - APK CREATED!"
+          echo "✅ APK FOUND AND CREATED!"
           ls -lh bin/fieldworkerlocationtracker-1.0-debug.apk
-          exit 0
+          file bin/fieldworkerlocationtracker-1.0-debug.apk
         else
           echo "❌ APK not found"
-          find bin -name "*.apk" 2>/dev/null || echo "No APK in bin folder"
-          exit 1
+          echo "Searching in bin folder..."
+          ls -la bin/ 2>/dev/null || echo "bin/ does not exist"
+          echo ""
+          echo "Searching entire project..."
+          find . -name "*.apk" -type f 2>/dev/null | head -10 || echo "No APK found"
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
-      if: success()
+      if: always()
       with:
         name: fieldworker-tracker-apk
-        path: bin/fieldworkerlocationtracker-1.0-debug.apk
+        path: |
+          bin/*.apk
+          buildozer.spec
+        if-no-files-found: warn
 
