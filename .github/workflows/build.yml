@@ -36,13 +36,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install buildozer cython==0.29.36
 
+      - name: Clear buildozer cache
+        run: |
+          rm -rf ~/.buildozer
+          rm -rf .buildozer
+
       - name: Cache buildozer global directory
         uses: actions/cache@v4
         with:
           path: |
             ~/.buildozer
             .buildozer
-          key: buildozer-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-${{ hashFiles('buildozer.spec') }}-${{ github.run_id }}
 
       - name: Build with Buildozer
         run: |
