@@ -11,79 +11,38 @@ jobs:
     timeout-minutes: 180
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential git zip unzip openjdk-17-jdk \
-          python3-pip autoconf libtool pkg-config \
-          libncurses-dev cmake libffi-dev libssl-dev \
-          cython3 ninja-build
+        sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config libncurses-dev cmake libffi-dev libssl-dev cython3 ninja-build
+        python3 -m pip install --upgrade pip
+        pip install cython==0.29.35 buildozer==1.5.0 kivy==2.2.1 plyer requests pyjnius certifi
 
-    - name: Install Python packages
-      run: |
-        python3 -m pip install --upgrade pip setuptools wheel
-        python3 -m pip install cython==0.29.35
-        python3 -m pip install buildozer==1.5.0
-        python3 -m pip install kivy==2.2.1
-        python3 -m pip install plyer requests pyjnius certifi
+    - name: Build APK
+      run: buildozer android debug 2>&1
 
-    - name: Verify Python environment
-      run: |
-        echo "=== Python Version ==="
-        python3 --version
-        echo "=== Pip Packages ==="
-        pip list | grep -E "buildozer|kivy|cython"
-        echo "=== Buildozer Info ==="
-        buildozer --version
-        which buildozer
-
-    - name: Verify buildozer.spec
-      run: |
-        echo "=== buildozer.spec content ==="
-        cat buildozer.spec
-        echo "=== main.py first 50 lines ==="
-        head -50 main.py
-
-    - name: Build APK (VERBOSE OUTPUT)
-      run: |
-        echo "Starting buildozer build with verbose output..."
-        buildozer android debug -v 2>&1 | tee build_output.log
-        BUILD_EXIT_CODE=$?
-        echo "Build exit code: $BUILD_EXIT_CODE"
-        
-    - name: Show build result
+    - name: Show result
       if: always()
       run: |
-        echo "=== Checking for APK ==="
         if [ -f "bin/fieldworkerlocationtracker-1.0-debug.apk" ]; then
-          echo "✅ APK FOUND!"
-          ls -lh bin/fieldworkerlocationtracker-1.0-debug.apk
+          echo "✅ SUCCESS - APK CREATED!"
+          ls -lh bin/*.apk
         else
-          echo "❌ APK NOT FOUND"
-          echo ""
-          echo "=== Last 300 lines of build log ==="
-          tail -300 build_output.log
-          echo ""
-          echo "=== Searching for error messages ==="
-          grep -i "error\|failed\|exception" build_output.log || echo "No explicit errors in log"
+          echo "❌ APK not found - checking for errors..."
+          find . -name "*.apk" 2>/dev/null || echo "No APK files"
         fi
 
-    - name: Upload APK or build log
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: fieldworker-tracker-build
-        path: |
-          bin/*.apk
-          build_output.log
+        name: fieldworker-tracker-apk
+        path: bin/*.apk
         if-no-files-found: warn
 
