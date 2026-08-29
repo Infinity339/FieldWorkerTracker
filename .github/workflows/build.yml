@@ -25,7 +25,7 @@ jobs:
     - name: Install Python packages
       run: |
         python3 -m pip install --upgrade pip
-        pip install cython==0.29.35 buildozer==1.5.0 kivy==2.2.1 plyer requests pyjnius certifi
+        pip install cython buildozer kivy plyer requests pyjnius
 
     - name: Setup Android SDK Licenses
       run: |
@@ -33,25 +33,20 @@ jobs:
         echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
         echo "84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license
         echo "d56f5187479451eabf01fb78af6dfcb131b33910" > $ANDROID_HOME/licenses/google-android-sdk-license
-        echo "Licenses created successfully"
-        ls -la $ANDROID_HOME/licenses/
+        ls $ANDROID_HOME/licenses/
 
     - name: Build APK
-      run: |
-        echo "=== Starting Build ==="
-        buildozer android debug 2>&1
-        echo "=== Build Complete ==="
+      run: buildozer android debug 2>&1 | tail -50
 
-    - name: Check APK
+    - name: Check Result
       if: always()
       run: |
-        echo "=== Checking for APK ==="
         if [ -f "bin/fieldworkerlocationtracker-1.0-debug.apk" ]; then
-          echo "✅ APK CREATED!"
-          ls -lh bin/fieldworkerlocationtracker-1.0-debug.apk
+          echo "✅ SUCCESS - APK BUILT!"
+          ls -lh bin/*.apk
         else
-          echo "❌ APK not found"
-          ls -la bin/ 2>/dev/null || echo "bin folder does not exist"
+          echo "❌ APK not built - check logs"
+          ls -la bin/ 2>/dev/null || echo "No bin folder"
         fi
 
     - name: Upload APK
